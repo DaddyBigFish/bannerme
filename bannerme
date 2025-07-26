@@ -6,74 +6,86 @@ from smb.SMBConnection import SMBConnection
 import socket
 from rich.console import Console
 from rich.table import Table
+from concurrent.futures import ThreadPoolExecutor
+
+def get_banner_for_port(host_ip, port, service):
+    service = service.upper()
+    if port == '445':  # Only try SMB for port 445
+        try:
+            conn = SMBConnection('', '', '', '', use_ntlm_v2=True)
+            conn.connect(host_ip, 445)
+
+            # Check if the connection is using SMB2 protocol
+            smb_version = "SMBv1"
+            if conn.isUsingSMB2:
+                smb_version = "SMBv2 or higher"
+
+            # Check SMB signing status based on sign_options
+            signing_status = "Disabled"
+            if conn.sign_options == 2:
+                signing_status = "Enabled"
+            elif conn.sign_options == 0:
+                signing_status = "Disabled"
+            elif conn.sign_options == 1:
+                signing_status = "Supported"
+
+            # Attempt to list shares to confirm the server is responsive
+            shares = conn.listShares()
+            if shares:
+                banner = f"{smb_version} (Signing is {signing_status})"
+                return port, "SMB", banner
+            else:
+                return port, "SMB", "No shares found."
+
+            conn.close()
+        except Exception as e:
+            return port, "SMB", f"Connection failed ({str(e)})"
+
+    else:  # For other services like FTP, SSH, etc.
+        try:
+            # Attempt to open a socket and grab a banner
+            service_banner = "Connection failed"
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(1)  # Increased timeout
+                s.connect((host_ip, int(port)))
+                s.send(b'HEAD / HTTP/1.1\r\n\r\n')
+                service_banner = s.recv(1024).decode('utf-8').strip()
+            return port, service, service_banner
+        except socket.timeout:
+            return port, service, "-"
+        except Exception as e:
+            return port, service, f"Connection failed ({str(e)})"
 
 def get_banner_from_nmap(file_name):
     with open(file_name, 'r') as f:
         nmap_data = f.read()
 
-    ports = re.findall(r'(\d+)/tcp\s+open\s+(\S+)', nmap_data)
-    target_ip = re.search(r'Nmap scan report for (\S+)', nmap_data).group(1)
+    host_data = re.findall(r'Nmap scan report for (\S+)(.*?)(?=Nmap scan report|# Nmap done)', nmap_data, re.DOTALL)
 
     console = Console()
-    table = Table(show_header=True, header_style="bold magenta")
-    table.add_column("Port", style="dim")
-    table.add_column("Service")
-    table.add_column("Banner")
 
-    for port, service in ports:
-        service = service.upper()  # Convert service name to uppercase
+    # Use ThreadPoolExecutor for parallel host scanning
+    with ThreadPoolExecutor(max_workers=50) as host_executor:
+        for host_ip, data in host_data:
+            console.print(f"[bold green]{host_ip}")
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("Port", style="dim")
+            table.add_column("Service")
+            table.add_column("Banner")
 
-        if port == '445':  # Only try SMB for port 445
-            try:
-                # Create SMBConnection instance
-                conn = SMBConnection('', '', '', '', use_ntlm_v2=True)
-                conn.connect(target_ip, 445)
+            ports = re.findall(r'(\d+)/tcp\s+open\s+(\S+)', data)
 
-                # Check if the connection is using SMB2 protocol
-                smb_version = "SMBv1"
-                if conn.isUsingSMB2:
-                    smb_version = "SMBv2 or higher"
+            if ports:
+                # Use ThreadPoolExecutor for parallel port scanning for each host
+                with ThreadPoolExecutor(max_workers=50) as port_executor:
+                    results = port_executor.map(lambda args: get_banner_for_port(host_ip, *args), [(port, service) for port, service in ports])
 
-                # Check SMB signing status based on sign_options
-                signing_status = "Disabled"
-                if conn.sign_options == 2:
-                    signing_status = "Enabled"
-                elif conn.sign_options == 0:
-                    signing_status = "Disabled"
-                elif conn.sign_options == 1:
-                    signing_status = "Supported"
+                for port, service, banner in results:
+                    table.add_row(port, service, banner)
 
-                # Attempt to list shares to confirm the server is responsive
-                shares = conn.listShares()
-                if shares:
-                   # Adjusting signing status for true enforcement
-                    if signing_status != "Disabled" and conn.sign_options != 0:
-                        signing_status = "Disabled"  # If signing isn't enforced, show as not required
-                    banner = f"{smb_version} (Signing is {signing_status})"
-                    table.add_row(port, "SMB", banner)
-                else:
-                    table.add_row(port, "SMB", "No shares found.")
-
-                # Close the connection
-                conn.close()
-            except Exception as e:
-                pass  # Ignore errors related to SMB (we don't want to print "timed out" errors)
-
-        else:  # For other services like FTP, SSH, etc.
-            try:
-                # Attempt to open a socket and grab a banner
-                service_banner = "No banner available"
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.settimeout(5)
-                    s.connect((target_ip, int(port)))
-                    s.send(b'HEAD / HTTP/1.1\r\n\r\n')
-                    service_banner = s.recv(1024).decode('utf-8').strip()
-
-                table.add_row(port, service, service_banner)
-            except Exception as e:
-                pass  # Ignore timeout errors or connection issues for other services
-
-    console.print(table)
+                console.print(table)
+            else:
+                console.print(f"[bold red]No open ports found for {host_ip}[/]")
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
