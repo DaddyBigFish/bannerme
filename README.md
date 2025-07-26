@@ -22,6 +22,14 @@ bannerme *.nmap
 │      │             │ 530 Please login with USER and PASS.  │
 │ 22   │ SSH         │ SSH-2.0-OpenSSH_4.7p1 Debian-8ubuntu1 │
 │ 139  │ NETBIOS-SSN │ -                                     │
-│ 445  │ SMB         │ SMBv1 (Signing is Enabled)            │
+│ 445  │ SMB         │ SMBv1 (Signing is Disabled)           │
+└──────┴─────────────┴───────────────────────────────────────┘
+
+10.10.10.4
+┏━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Port ┃ Service     ┃ Banner                                ┃
+┡━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 22   │ SSH         │ SSH-2.0-OpenSSH_4.7p1 Debian-8ubuntu1 │
+│ 445  │ SMB         │ SMBv2 (Signing is Enabled)            │
 └──────┴─────────────┴───────────────────────────────────────┘
 ```
