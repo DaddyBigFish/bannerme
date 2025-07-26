@@ -1,97 +1,77 @@
 #!/usr/bin/env python3
 
+import subprocess
 import re
 import sys
-from smb.SMBConnection import SMBConnection
-import socket
 from rich.console import Console
 from rich.table import Table
-from concurrent.futures import ThreadPoolExecutor
 
-def get_banner_for_port(host_ip, port, service):
-    service = service.upper()
-    if port == '445':  # Only try SMB for port 445
-        try:
-            conn = SMBConnection('', '', '', '', use_ntlm_v2=True)
-            conn.connect(host_ip, 445)
+def run_nmap_scan_for_banners(ip):
+    # Run Nmap to scan the given IP for open ports and banners (-sV)
+    try:
+        # Run the Nmap scan with the '-A' argument to get version and banner info
+        result = subprocess.run(['nmap', '--min-rate=250', '--max-rate=500', '-n', '-Pn', '-A', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-            # Check if the connection is using SMB2 protocol
-            smb_version = "SMBv1"
-            if conn.isUsingSMB2:
-                smb_version = "SMBv2 or higher"
+        if result.returncode != 0:
+            print(f"Error running Nmap: {result.stderr}")
+            return None
 
-            # Check SMB signing status based on sign_options
-            signing_status = "Disabled"
-            if conn.sign_options == 2:
-                signing_status = "Enabled"
-            elif conn.sign_options == 0:
-                signing_status = "Disabled"
-            elif conn.sign_options == 1:
-                signing_status = "Supported"
+        # Parse the output from Nmap
+        output = result.stdout
 
-            # Attempt to list shares to confirm the server is responsive
-            shares = conn.listShares()
-            if shares:
-                # Adjusting signing status for true enforcement
-                if signing_status != "Disabled" and conn.sign_options != 0:
-                    signing_status = "Disabled"  # If signing isn't enforced, show as not required
-                banner = f"{smb_version} (Signing is {signing_status})"
-                return port, "SMB", banner
-            else:
-                return port, "SMB", "No shares found."
+        # Regex to capture open ports and their banner info
+        port_pattern = r"(\d+/tcp)\s+open\s+(\S+)\s+(.*)"
 
-            conn.close()
-        except Exception as e:
-            return port, "SMB", f"Connection failed ({str(e)})"
+        # Find all open ports and services
+        ports = re.findall(port_pattern, output)
+        return ports
 
-    else:  # For other services like FTP, SSH, etc.
-        try:
-            # Attempt to open a socket and grab a banner
-            service_banner = "Connection failed"
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(0.25)  # Increased timeout
-                s.connect((host_ip, int(port)))
-                s.send(b'HEAD / HTTP/1.1\r\n\r\n')
-                service_banner = s.recv(1024).decode('utf-8').strip()
-            return port, service, service_banner
-        except socket.timeout:
-            return port, service, "-"
-        except Exception as e:
-            return port, service, f"Connection failed ({str(e)})"
+    except Exception as e:
+        print(f"An error occurred while running Nmap: {e}")
+        return None
 
-def get_banner_from_nmap(file_name):
-    with open(file_name, 'r') as f:
-        nmap_data = f.read()
+def parse_nmap_file(file_path):
+    # Parse the Nmap .nmap file to extract the IP addresses of the hosts
+    with open(file_path, 'r') as file:
+        nmap_data = file.read()
 
-    host_data = re.findall(r'Nmap scan report for (\S+)(.*?)(?=Nmap scan report|# Nmap done)', nmap_data, re.DOTALL)
+    # Regex to capture host IPs
+    host_pattern = r"Nmap scan report for (\S+)"
 
+    # Find all host IPs
+    hosts = re.findall(host_pattern, nmap_data)
+
+    # Initialize the rich console for output
     console = Console()
 
-    # Use ThreadPoolExecutor for parallel host scanning
-    with ThreadPoolExecutor(max_workers=25) as host_executor:
-        for host_ip, data in host_data:
-            console.print(f"\n[bold green]{host_ip}")
-            table = Table(show_header=True, header_style="bold magenta")
-            table.add_column("Port", style="dim")
-            table.add_column("Service")
-            table.add_column("Banner")
+    # Loop through each host in the nmap file and scan for banners
+    for host_ip in hosts:
+        console.print(f"\n[bold green]{host_ip}")
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Port", style="dim")
+        table.add_column("Service")
+        table.add_column("Banner")
 
-            ports = re.findall(r'(\d+)/tcp\s+open\s+(\S+)', data)
+        # Run Nmap scan to get banners for each host
+        ports = run_nmap_scan_for_banners(host_ip)
 
-            if ports:
-                # Use ThreadPoolExecutor for parallel port scanning for each host
-                with ThreadPoolExecutor(max_workers=25) as port_executor:
-                    results = port_executor.map(lambda args: get_banner_for_port(host_ip, *args), [(port, service) for port, service in ports])
+        if ports:
+            for port, service, banner in ports:
+                # Remove the "/tcp" part from the port string
+                port_number = port.split('/')[0]  # Extract just the number from "21/tcp" -> "21"
+                table.add_row(port_number, service, banner)
+            # Print the table with results for this host
+            console.print(table)
+        else:
+            console.print(f"[bold red]No open ports found for {host_ip}[/]")
 
-                for port, service, banner in results:
-                    table.add_row(port, service, banner)
-
-                console.print(table)
-            else:
-                console.print(f"[bold red]No open ports found for {host_ip}[/]")
+def get_banner_from_nmap(files):
+    for file in files:
+        parse_nmap_file(file)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python script.py <nmap_file>")
+    # Ensure at least one .nmap file is provided as an argument
+    if len(sys.argv) < 2:
+        print("Usage: python script.py <file1.nmap> [file2.nmap] ...")
     else:
-        get_banner_from_nmap(sys.argv[1])
+        get_banner_from_nmap(sys.argv[1:])
