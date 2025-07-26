@@ -12,7 +12,8 @@ sudo wget https://github.com/DaddyBigFish/bannerme/raw/refs/heads/main/bannerme 
 
 # Example
 ```
- bannerme *.nmap
+bannerme *.nmap
+
 10.10.10.3
 ┏━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Port ┃ Service     ┃ Banner                                ┃
