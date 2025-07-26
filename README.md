@@ -1,5 +1,5 @@
 # bannerme
-### Pretty banner grabbing
+### Pretty and pure python banner grabbing
 <img width="200" alt="bannerme" src="https://github.com/user-attachments/assets/5e9e29b9-a25a-4137-8bf6-7696b7c1cc2e" />
 
 # Description
