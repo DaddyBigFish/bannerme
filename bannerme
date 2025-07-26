@@ -32,6 +32,9 @@ def get_banner_for_port(host_ip, port, service):
             # Attempt to list shares to confirm the server is responsive
             shares = conn.listShares()
             if shares:
+                # Adjusting signing status for true enforcement
+                if signing_status != "Disabled" and conn.sign_options != 0:
+                    signing_status = "Disabled"  # If signing isn't enforced, show as not required
                 banner = f"{smb_version} (Signing is {signing_status})"
                 return port, "SMB", banner
             else:
