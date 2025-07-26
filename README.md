@@ -12,12 +12,15 @@ sudo wget https://github.com/DaddyBigFish/bannerme/raw/refs/heads/main/bannerme 
 
 # Example
 ```
-bannerme *.nmap
-┏━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Port ┃ Service ┃ Banner                                ┃
-┡━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ 21   │ FTP     │ 220 (vsFTPd 2.3.4)                    │
-│ 22   │ SSH     │ SSH-2.0-OpenSSH_4.7p1 Debian-8ubuntu1 │
-│ 445  │ SMB     │ SMBv1 (Signing is Disabled)           │
-└──────┴─────────┴───────────────────────────────────────┘
+ bannerme *.nmap
+10.10.10.3
+┏━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Port ┃ Service     ┃ Banner                                ┃
+┡━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 21   │ FTP         │ 220 (vsFTPd 2.3.4)                    │
+│      │             │ 530 Please login with USER and PASS.  │
+│ 22   │ SSH         │ SSH-2.0-OpenSSH_4.7p1 Debian-8ubuntu1 │
+│ 139  │ NETBIOS-SSN │ -                                     │
+│ 445  │ SMB         │ SMBv1 (Signing is Enabled)            │
+└──────┴─────────────┴───────────────────────────────────────┘
 ```
