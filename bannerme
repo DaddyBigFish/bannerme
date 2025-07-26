@@ -35,11 +35,11 @@ def get_banner_from_nmap(file_name):
                     smb_version = "SMBv2 or higher"
 
                 # Check SMB signing status based on sign_options
-                signing_status = "Not Required"
+                signing_status = "Disabled"
                 if conn.sign_options == 2:
-                    signing_status = "Required"
+                    signing_status = "Enabled"
                 elif conn.sign_options == 0:
-                    signing_status = "Not Required"
+                    signing_status = "Disabled"
                 elif conn.sign_options == 1:
                     signing_status = "Supported"
 
@@ -47,9 +47,9 @@ def get_banner_from_nmap(file_name):
                 shares = conn.listShares()
                 if shares:
                    # Adjusting signing status for true enforcement
-                    if signing_status != "Not Required" and conn.sign_options != 0:
-                        signing_status = "Not Required"  # If signing isn't enforced, show as not required
-                    banner = f"{smb_version} (Signing {signing_status})"
+                    if signing_status != "Disabled" and conn.sign_options != 0:
+                        signing_status = "Disabled"  # If signing isn't enforced, show as not required
+                    banner = f"{smb_version} (Signing is {signing_status})"
                     table.add_row(port, "SMB", banner)
                 else:
                     table.add_row(port, "SMB", "No shares found.")
