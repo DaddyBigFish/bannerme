@@ -38,7 +38,8 @@ def get_banner_from_nmap(files):
                 ordered_hosts.append(host)
 
     console = Console()
-    table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE_HEAVY)
+    table = Table(show_header=True, header_style="bold magenta", box=box.SQUARE)
+
     table.add_column("HOST", style="bold cyan")
     table.add_column("PORTS", style="dim")
     table.add_column("SERVICES")
@@ -51,13 +52,14 @@ def get_banner_from_nmap(files):
             for port, service, banner in ports:
                 port_number = port.split('/')[0]
                 if first:
-                    table.add_row(host_ip, port_number, service, banner, end_section=False)
+                    table.add_row(host_ip, port_number, service, banner)
                     first = False
                 else:
-                    table.add_row("", port_number, service, banner, end_section=False)
-            table.add_section()
+                    table.add_row("", port_number, service, banner)
+            table.add_section()  # add separator line after host
         else:
-            table.add_row(host_ip, "-", "-", "No open ports", end_section=True)
+            table.add_row(host_ip, "-", "-", "No open ports")
+            table.add_section()
 
     console.print(table)
 
