@@ -3,75 +3,64 @@
 import subprocess
 import re
 import sys
+import glob
 from rich.console import Console
 from rich.table import Table
 
 def run_nmap_scan_for_banners(ip):
-    # Run Nmap to scan the given IP for open ports and banners (-sV)
     try:
-        # Run the Nmap scan with the '-A' argument to get version and banner info
-        result = subprocess.run(['nmap', '--min-rate=250', '--max-rate=500', '-n', '-Pn', '-A', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
+        result = subprocess.run(
+            ['nmap', '--min-rate=250', '--max-rate=500', '-n', '-Pn', '-A', ip],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
         if result.returncode != 0:
-            print(f"Error running Nmap: {result.stderr}")
-            return None
-
-        # Parse the output from Nmap
+            return []
         output = result.stdout
-
-        # Regex to capture open ports and their banner info
         port_pattern = r"(\d+/tcp)\s+open\s+(\S+)\s+(.*)"
-
-        # Find all open ports and services
-        ports = re.findall(port_pattern, output)
-        return ports
-
-    except Exception as e:
-        print(f"An error occurred while running Nmap: {e}")
-        return None
+        return re.findall(port_pattern, output)
+    except Exception:
+        return []
 
 def parse_nmap_file(file_path):
-    # Parse the Nmap .nmap file to extract the IP addresses of the hosts
     with open(file_path, 'r') as file:
         nmap_data = file.read()
-
-    # Regex to capture host IPs
     host_pattern = r"Nmap scan report for (\S+)"
+    return re.findall(host_pattern, nmap_data)
 
-    # Find all host IPs
-    hosts = re.findall(host_pattern, nmap_data)
+def get_banner_from_nmap(files):
+    seen = set()
+    ordered_hosts = []
+    for file in files:
+        for host in parse_nmap_file(file):
+            if host not in seen:
+                seen.add(host)
+                ordered_hosts.append(host)
 
-    # Initialize the rich console for output
     console = Console()
-
-    # Loop through each host in the nmap file and scan for banners
-    for host_ip in hosts:
+    for host_ip in ordered_hosts:
         console.print(f"\n[bold green]{host_ip}")
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("Port", style="dim")
         table.add_column("Service")
         table.add_column("Banner")
 
-        # Run Nmap scan to get banners for each host
         ports = run_nmap_scan_for_banners(host_ip)
-
         if ports:
             for port, service, banner in ports:
-                # Remove the "/tcp" part from the port string
-                port_number = port.split('/')[0]  # Extract just the number from "21/tcp" -> "21"
+                port_number = port.split('/')[0]
                 table.add_row(port_number, service, banner)
-            # Print the table with results for this host
             console.print(table)
         else:
             console.print(f"[bold red]No open ports found for {host_ip}[/]")
 
-def get_banner_from_nmap(files):
-    for file in files:
-        parse_nmap_file(file)
-
 if __name__ == "__main__":
-    # Ensure at least one .nmap file is provided as an argument
     if len(sys.argv) < 2:
-        print("Usage: python script.py <file1.nmap> [file2.nmap] ...")
+        # keep natural order from the shell instead of sorted glob
+        import os
+        files = sorted(glob.glob("*.nmap"), key=os.path.getmtime)
     else:
-        get_banner_from_nmap(sys.argv[1:])
+        files = sys.argv[1:]
+    if not files:
+        print("No .nmap files found.")
+    else:
+        get_banner_from_nmap(files)
