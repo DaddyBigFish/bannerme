@@ -3,7 +3,7 @@
 <img width="200" alt="bannerme" src="https://github.com/user-attachments/assets/5e9e29b9-a25a-4137-8bf6-7696b7c1cc2e" />
 
 # Description
-The tool bannerme was designed to make the banner grabbing a little prettier. It simply ingests any '.nmap' file, attempts nmap banner grabbing using -A scan and presents the information in a nice table.
+The tool bannerme was designed to make the banner grabbing a little prettier. It simply ingests all '.nmap' files, creates a unique dataset of hosts and attempts nmap banner grabbing using -A scan then presents the information in a nice table.
 
 # Install
 ```
@@ -12,7 +12,7 @@ sudo wget https://github.com/DaddyBigFish/bannerme/raw/refs/heads/main/bannerme 
 
 # Example
 ```
-bannerme *.nmap
+bannerme
 
 10.10.10.3
 ┏━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
