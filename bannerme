@@ -4,8 +4,9 @@ import subprocess
 import re
 import sys
 import glob
+import os
 from rich.console import Console
-from rich.table import Table
+from rich.table import Table, box
 
 def run_nmap_scan_for_banners(ip):
     try:
@@ -37,26 +38,31 @@ def get_banner_from_nmap(files):
                 ordered_hosts.append(host)
 
     console = Console()
-    for host_ip in ordered_hosts:
-        console.print(f"\n[bold green]{host_ip}")
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Port", style="dim")
-        table.add_column("Service")
-        table.add_column("Banner")
+    table = Table(show_header=True, header_style="bold magenta", box=box.SIMPLE_HEAVY)
+    table.add_column("HOST", style="bold cyan")
+    table.add_column("PORTS", style="dim")
+    table.add_column("SERVICES")
+    table.add_column("BANNER")
 
+    for host_ip in ordered_hosts:
         ports = run_nmap_scan_for_banners(host_ip)
         if ports:
+            first = True
             for port, service, banner in ports:
                 port_number = port.split('/')[0]
-                table.add_row(port_number, service, banner)
-            console.print(table)
+                if first:
+                    table.add_row(host_ip, port_number, service, banner, end_section=False)
+                    first = False
+                else:
+                    table.add_row("", port_number, service, banner, end_section=False)
+            table.add_section()
         else:
-            console.print(f"[bold red]No open ports found for {host_ip}[/]")
+            table.add_row(host_ip, "-", "-", "No open ports", end_section=True)
+
+    console.print(table)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        # keep natural order from the shell instead of sorted glob
-        import os
         files = sorted(glob.glob("*.nmap"), key=os.path.getmtime)
     else:
         files = sys.argv[1:]
